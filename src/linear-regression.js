@@ -32,8 +32,8 @@ async function main() {
             .on("error", reject)
     })
 
-    const alpha = 0.00001;
-    const k = 1000000;
+    const learningRate = 0.00001;
+    const learningSteps = 1000000;
     const trainingPercent = 0.5;
     const batchSize = 5;
     const trainingSet = [];
@@ -61,7 +61,7 @@ async function main() {
     let m = 0;
     let b = 0;
 
-    for (let i = 0; i < k; i++) {
+    for (let i = 0; i < learningSteps; i++) {
         let sumM = 0;
         let sumB = 0;
 
@@ -75,8 +75,8 @@ async function main() {
         const dLossM = 2 / batch.length * sumM;
         const dLossB = 2 / batch.length * sumB;
 
-        m -= dLossM * alpha;
-        b -= dLossB * alpha;
+        m -= dLossM * learningRate;
+        b -= dLossB * learningRate;
     }
 
     console.log("y = " + m.toFixed(4) + "X" + " + " + b.toFixed(4));

@@ -6,11 +6,16 @@ class Dot {
     constructor(data) {
         this.x = data[0];
         this.y = data[1];
+        this.used = false;
     }
 
     f(m, b) {
         return (this.x * m) + b;
     }
+}
+
+function getRandomInt(max) {
+    return Math.floor(Math.random() * max);
 }
 
 async function main() {
@@ -27,27 +32,48 @@ async function main() {
             .on("error", reject)
     })
 
+    const alpha = 0.00001;
+    const k = 1000000;
+    const trainingPercent = 0.5;
+    const batchSize = 5;
+    const trainingSet = [];
+    const testSet = [];
+    const batch = [];
 
-    const alpha = 0.0001;
-    const n = 0.5 * dataset.length;
-    const k = 100000;
-    const trainingSet = dataset.slice(0, n);
-    const testSet = dataset.slice(n, dataset.length);
+    for (let i = 0; i < dataset.length; i++) {
+        if (Math.random() <= trainingPercent) {
+            trainingSet.push(dataset[i]);
+        } else {
+            testSet.push(dataset[i])
+        }
+    }
+
+    while (batch.length !== batchSize) {
+        const i = getRandomInt(testSet.length);
+        const dot = testSet[i];
+
+        if(dot.used) continue;
+
+        batch.push(dot);
+        dot.used = true;
+    }
+
     let m = 0;
     let b = 0;
 
     for (let i = 0; i < k; i++) {
-
         let sumM = 0;
         let sumB = 0;
-        for (const dot of trainingSet) {
-            const dif = dot.f(m, b) - dot.y; 
+
+        for (let j = 0; j < batch.length; j++) {
+            const dot = batch[j];
+            const dif = dot.f(m, b) - dot.y;
             sumB += dif;
             sumM += dif * dot.x;
         }
 
-        const dLossM = 2 / trainingSet.length * sumM;
-        const dLossB = 2 / trainingSet.length * sumB;
+        const dLossM = 2 / batch.length * sumM;
+        const dLossB = 2 / batch.length * sumB;
 
         m -= dLossM * alpha;
         b -= dLossB * alpha;
@@ -56,13 +82,14 @@ async function main() {
     console.log("y = " + m.toFixed(4) + "X" + " + " + b.toFixed(4));
 
     let absoluteError = 0;
-    for (const dot of testSet) {
+    for (let i = 0; i < testSet.length; i++) {
+        const dot = testSet[i];
         absoluteError += dot.f(m, b) - dot.y;
     }
 
     const averageError = absoluteError / testSet.length;
 
-    console.log("Average Error = " + averageError.toFixed(2));
+    console.log("Average Error = " + averageError.toFixed(4));
 
     const trace1 = {
         x: dataset.map(dot => dot.x),
@@ -77,10 +104,10 @@ async function main() {
 
     const data = [trace1, trace2];
 
-    const graphOptions = {filename: "linear-regression", fileopt: "overwrite" };
+    const graphOptions = { filename: "linear-regression", fileopt: "overwrite" };
     plotly.plot(data, graphOptions, function (err, msg) {
         console.log(msg);
-        if(err) {
+        if (err) {
             console.error(err);
         }
     });

@@ -1,5 +1,6 @@
 const fs = require("fs");
 const { parse } = require("csv");
+const { exit } = require("process");
 const plotly = require('plotly')("NerdolaCartola", "VzRPiXgywDW6ik1Lr8pe")
 
 class Dot {
@@ -15,28 +16,32 @@ class Dot {
 }
 
 class LinearRegression {
-    constructor() {
-        this.src = "./data/linear-regression2.csv"
-        this.learningRate = 0.000001;
-        this.learningSteps = 10000000;
-        this.trainingPercent = 0.5;
+    constructor(lr, ls, tp, bs) {
+        if(bs < 1) throw "Batch size must be at least 1"
+        if(lr <= 0) throw "Learning rate must be grater than zero"
+        if(ls <= 0) throw "Learning steps must be grater than zero"
+        if(tp <= 0 || tp >= 1) throw "Training percentage must be  between zero and one exclusively"
+
+        this.learningRate = lr;
+        this.learningSteps = Math.floor(ls);
+        this.trainingPercent = tp;
+        this.batchSize = bs;
         this.dataSet = [];
         this.trainingSet = [];
         this.testSet = [];
         this.batches = [];
         this.m = 0;
         this.b = 0;
-        this.batchSize = 5;
     }
 
     getBatchSize(desiredBatchSize) {
         return Math.max(0, Math.min(desiredBatchSize, this.trainingSet.length));
     }
 
-    async readData() {
+    async readData(src) {
         await new Promise((resolve, reject) => {
             fs
-                .createReadStream(this.src)
+                .createReadStream(src)
                 .pipe(parse({ delimiter: ",", from_line: 2 }))
                 .on("data", (row) => {
                     this.dataSet.push(new Dot(row))
@@ -48,6 +53,8 @@ class LinearRegression {
 
     separateTrainingAndTesting() {
         const {trainingPercent, dataSet, trainingSet, testSet} = this;
+
+        if(!dataSet.length) throw "Data set was not provided yet"
 
         for (let i = 0; i < dataSet.length; i++) {
             if (Math.random() <= trainingPercent) {
@@ -61,6 +68,8 @@ class LinearRegression {
     separateBatches() {
         const {trainingSet, batchSize, batches} = this;
 
+        if(!trainingSet.length) throw "Training set was not defined yet"
+
         for (let i = 0; i < trainingSet.length / batchSize; i++) {
             const start = i * batchSize;
             const end = Math.min(start + batchSize, trainingSet.length);
@@ -69,7 +78,9 @@ class LinearRegression {
     }
 
     training() {
-        const {learningSteps, learningRate, batches, testSet, batchSize} = this;
+        const {learningSteps, learningRate, batches} = this;
+
+        if(!batches.length) throw "Batches was not defined yet"
 
         for (let i = 0; i < learningSteps; i++) {
             let sumM = 0;
@@ -92,12 +103,16 @@ class LinearRegression {
     }
 
     error() {
+        const {testSet, m, b} = this;
+
+        if(!testSet.length) throw "Test set was not defined yet";
+
         let absoluteError = 0;
-        for (let i = 0; i < this.testSet.length; i++) {
-            const dot = this.testSet[i];
-            absoluteError += dot.f(this.m, this.b) - dot.y;
+        for (let i = 0; i < testSet.length; i++) {
+            const dot = testSet[i];
+            absoluteError += dot.f(m, b) - dot.y;
         }
-        return absoluteError / this.testSet.length;
+        return absoluteError / testSet.length;
     }
 
     plotGraph() {
@@ -143,18 +158,23 @@ class LinearRegression {
 }
 
 async function main() {
-    const LR = new LinearRegression();
-    await LR.readData();
-    LR.separateTrainingAndTesting();
-    LR.separateBatches();
-    const start = performance.now();
-    LR.training();
-    const end = performance.now()
-    console.log(end - start);
-    console.log("m =", LR.m);
-    console.log("b =", LR.b);
-    console.log("L =", LR.error());
-    LR.plotGraph();
+    try {
+        const LR = new LinearRegression(10**-4, 10**4, 0.1, 25);
+        await LR.readData("./data/linear-regression2.csv");
+        LR.separateTrainingAndTesting();
+        LR.separateBatches();
+        const start = performance.now();
+        LR.training();
+        const end = performance.now()
+        console.log(end - start);
+        console.log("m =", LR.m);
+        console.log("b =", LR.b);
+        console.log("L =", LR.error());
+        // LR.plotGraph();
+    } catch(e) {
+        console.error(e);
+        exit(1);
+    }
 }
 
 main();

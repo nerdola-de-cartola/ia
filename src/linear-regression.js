@@ -3,11 +3,49 @@ const { parse } = require("csv");
 const { exit } = require("process");
 const plotly = require('plotly')("NerdolaCartola", "VzRPiXgywDW6ik1Lr8pe")
 
+const shuffle = (array) => { 
+    return array.sort(() => Math.random() - 0.5); 
+}; 
+
+class SubArray {
+    constructor(arr, start, end) {
+        if(start < 0 || start > arr.length) throw "Start index must be between 0 and array size";
+        if(end < start || end > arr.length) throw "End index must be between start and array size";
+
+        this.arr = arr;
+        this.start = start;
+        this.end = end;
+        this.length = this.end - this.start;
+    }
+
+    at(index) {
+        const trueIndex= index + this.start;
+        if(index < 0 || index > this.length || trueIndex >= this.arr.length) throw "Invalid index";
+        return this.arr.at(trueIndex);
+    }
+
+    print() {
+        console.log("[")
+        for(let i = 0; i < this.length; i++) {
+            console.log("   ", this.at(i));
+        }
+        console.log("]")
+    }
+
+    map(f) {
+        const result = [];
+        for(let i = 0; i < this.length; i++) {
+            const element = this.at(i);
+            result.push(f(element, i, result));
+        }
+        return result;
+    }
+}
+
 class Dot {
     constructor(data) {
         this.x = Number(data[0]);
         this.y = Number(data[1]);
-        this.used = false;
     }
 
     f(m, b) {
@@ -27,8 +65,8 @@ class LinearRegression {
         this.trainingPercent = tp;
         this.batchSize = bs;
         this.dataSet = [];
-        this.trainingSet = [];
-        this.testSet = [];
+        this.trainingSet = null;
+        this.testSet = null;
         this.batches = [];
         this.m = 0;
         this.b = 0;
@@ -52,17 +90,14 @@ class LinearRegression {
     }
 
     separateTrainingAndTesting() {
-        const {trainingPercent, dataSet, trainingSet, testSet} = this;
+        const {trainingPercent, dataSet} = this;
 
         if(!dataSet.length) throw "Data set was not provided yet"
 
-        for (let i = 0; i < dataSet.length; i++) {
-            if (Math.random() <= trainingPercent) {
-                trainingSet.push(dataSet[i]);
-            } else {
-                testSet.push(dataSet[i])
-            }
-        }
+        shuffle(dataSet);
+        const trainingIndex = Math.round(trainingPercent*dataSet.length);
+        this.trainingSet = new SubArray(dataSet, 0, trainingIndex); 
+        this.testSet = new SubArray(dataSet, trainingIndex, dataSet.length); 
     }
 
     separateBatches() {
@@ -73,7 +108,7 @@ class LinearRegression {
         for (let i = 0; i < trainingSet.length / batchSize; i++) {
             const start = i * batchSize;
             const end = Math.min(start + batchSize, trainingSet.length);
-            batches[i] = trainingSet.slice(start, end);
+            batches[i] = new SubArray(trainingSet, start, end);
         }
     }
 
@@ -88,7 +123,7 @@ class LinearRegression {
 
             const batch = batches[i % batches.length];
             for (let j = 0; j < batch.length; j++) {
-                const dot = batch[j];
+                const dot = batch.at(j);
                 const dif = dot.f(this.m, this.b) - dot.y;
                 sumB += dif;
                 sumM += dif * dot.x;
@@ -99,6 +134,7 @@ class LinearRegression {
 
             this.m -= dLossM * learningRate;
             this.b -= dLossB * learningRate;
+            
         }
     }
 
@@ -109,7 +145,7 @@ class LinearRegression {
 
         let absoluteError = 0;
         for (let i = 0; i < testSet.length; i++) {
-            const dot = testSet[i];
+            const dot = testSet.at(i);
             absoluteError += dot.f(m, b) - dot.y;
         }
         return absoluteError / testSet.length;
@@ -147,23 +183,20 @@ class LinearRegression {
         const data = [trainingTrace, testTrace, model];
 
         const graphOptions = { filename: "linear-regression", fileopt: "overwrite" };
-        plotly.plot(data, graphOptions, function (err, msg) {
-            console.log(msg);
-            if (err) {
-                console.error(err);
-            }
-        });
+        plotly.plot(data, graphOptions, msg => console.log(msg));
     }
 
 }
 
 async function main() {
     try {
-        const LR = new LinearRegression(10**-4, 10**4, 0.1, 25);
+        const alpha = 1*(10**-4);
+        const n = 1*(10**5);
+        const LR = new LinearRegression(alpha, n, 0.25, 5);
         await LR.readData("./data/linear-regression2.csv");
+        const start = performance.now();
         LR.separateTrainingAndTesting();
         LR.separateBatches();
-        const start = performance.now();
         LR.training();
         const end = performance.now()
         console.log(end - start);

@@ -39,7 +39,7 @@ function generateLinearRegressionDataSet(W, b, n) {
     return [X, Y];
 }
 
-async function main() {
+function main() {
     const W = [1, 1];
     const b = 0;
     const [X, Y] = generateLinearRegressionDataSet(W, b, 10000);

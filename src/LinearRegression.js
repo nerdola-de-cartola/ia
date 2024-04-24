@@ -2,6 +2,7 @@ const fs = require("fs");
 const { parse } = require("csv");
 const { shuffle } = require("./helpers");
 const { SubArray } = require("./SubArray");
+const { Console } = require("console");
 
 class LinearRegression {
     constructor(lr, ls, tp, bs) {
@@ -18,7 +19,7 @@ class LinearRegression {
         this.trainingSet = null;
         this.testSet = null;
         this.batches = [];
-        this.m = 0;
+        this.W = [];
         this.b = 0;
     }
 
@@ -67,36 +68,46 @@ class LinearRegression {
 
         if(!batches.length) throw "Batches was not defined yet"
 
+        if(!this.W.length) {
+            this.W = batches[0].at(0).x.map(() => 0);
+        }
+
         for (let i = 0; i < learningSteps; i++) {
-            let sumM = 0;
+            let sumW = this.W.map(() => 0);
             let sumB = 0;
 
             const batch = batches[i % batches.length];
+
             for (let j = 0; j < batch.length; j++) {
                 const dot = batch.at(j);
-                const dif = dot.f(this.m, this.b) - dot.y;
+                const dif = dot.f(this.W, this.b) - dot.y;
                 sumB += dif;
-                sumM += dif * dot.x;
+                
+                for(let k = 0; k < sumW.length; k++) {
+                    sumW[k] += dif * dot.x[k];
+                }
             }
 
-            const dLossM = 2 / batch.length * sumM;
             const dLossB = 2 / batch.length * sumB;
+            const dLossW = sumW.map((sum) => 2 / batch.length * sum);
 
-            this.m -= dLossM * learningRate;
             this.b -= dLossB * learningRate;
             
+            for(let j = 0; j < this.W.length; j++) {
+                this.W[j] -= dLossW[j] * learningRate
+            }            
         }
     }
 
     error() {
-        const {testSet, m, b} = this;
+        const {testSet, W, b} = this;
 
         if(!testSet.length) throw "Test set was not defined yet";
 
         let absoluteError = 0;
         for (let i = 0; i < testSet.length; i++) {
             const dot = testSet.at(i);
-            absoluteError += Math.abs(dot.f(m, b) - dot.y);
+            absoluteError += Math.abs(dot.f(W, b) - dot.y);
         }
         return absoluteError / testSet.length;
     }
@@ -104,7 +115,7 @@ class LinearRegression {
     saveFile(filename="model/lr.json") {
         const modelObj = {
             type: "linear",
-            W: this.m,
+            W: this.W,
             b: this.b,
         }
         const jsonStr = JSON.stringify(modelObj);
@@ -113,19 +124,36 @@ class LinearRegression {
 
     loadFile(filename="model/lr.json") {
         const data = JSON.parse(fs.readFileSync(filename));
-        this.m =  data.W;
+        this.W =  data.W;
         this.b =  data.b;
     }
 }
 
 class Dot {
     constructor(data) {
-        this.x = Number(data[0]);
-        this.y = Number(data[1]);
+        this.x = [];
+        this.y = 0;
+        
+        if(data.length < 2) throw "A dot needs at least 2 dimensions got " + data.length;
+
+        for(let i = 0; i < data.length - 1; i++) {
+            this.x.push(Number(data[i]))
+        }
+
+        this.y = data[data.length-1];
     }
 
-    f(m, b) {
-        return (this.x * m) + b;
+    f(W, b) {
+        let y = b;
+
+        if(W.length !== this.x.length)
+            throw "Weight and parameters needs to have the same dimensions, got " + W.length + " and " + this.x.length;
+
+        for(let i = 0; i < this.x.length; i++) {
+            y += (this.x[i] * W[i]);
+        }
+
+        return y;
     }
 }
 

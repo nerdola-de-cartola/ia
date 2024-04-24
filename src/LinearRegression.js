@@ -1,57 +1,7 @@
 const fs = require("fs");
 const { parse } = require("csv");
-const { exit } = require("process");
-const plotly = require('plotly')("NerdolaCartola", "VzRPiXgywDW6ik1Lr8pe")
-
-const shuffle = (array) => { 
-    return array.sort(() => Math.random() - 0.5); 
-}; 
-
-class SubArray {
-    constructor(arr, start, end) {
-        if(start < 0 || start > arr.length) throw "Start index must be between 0 and array size";
-        if(end < start || end > arr.length) throw "End index must be between start and array size";
-
-        this.arr = arr;
-        this.start = start;
-        this.end = end;
-        this.length = this.end - this.start;
-    }
-
-    at(index) {
-        const trueIndex= index + this.start;
-        if(index < 0 || index > this.length || trueIndex >= this.arr.length) throw "Invalid index";
-        return this.arr.at(trueIndex);
-    }
-
-    print() {
-        console.log("[")
-        for(let i = 0; i < this.length; i++) {
-            console.log("   ", this.at(i));
-        }
-        console.log("]")
-    }
-
-    map(f) {
-        const result = [];
-        for(let i = 0; i < this.length; i++) {
-            const element = this.at(i);
-            result.push(f(element, i, result));
-        }
-        return result;
-    }
-}
-
-class Dot {
-    constructor(data) {
-        this.x = Number(data[0]);
-        this.y = Number(data[1]);
-    }
-
-    f(m, b) {
-        return (this.x * m) + b;
-    }
-}
+const { shuffle } = require("./helpers");
+const { SubArray } = require("./SubArray");
 
 class LinearRegression {
     constructor(lr, ls, tp, bs) {
@@ -146,68 +96,37 @@ class LinearRegression {
         let absoluteError = 0;
         for (let i = 0; i < testSet.length; i++) {
             const dot = testSet.at(i);
-            absoluteError += dot.f(m, b) - dot.y;
+            absoluteError += Math.abs(dot.f(m, b) - dot.y);
         }
         return absoluteError / testSet.length;
     }
 
-    plotGraph() {
-        const {trainingSet, testSet, dataSet, m, b} = this;
-
-        const trainingTrace = {
-            x: trainingSet.map(dot => dot.x),
-            y: trainingSet.map(dot => dot.y),
-            mode: "markers",
-            marker: {
-                color: "red"
-            },
-            name: "training data"
-        };
-
-        const testTrace = {
-            x: testSet.map(dot => dot.x),
-            y: testSet.map(dot => dot.y),
-            mode: "markers",
-            marker: {
-                color: "blue"
-            },
-            name: "test data"
-        };
-
-        const model = {
-            x: dataSet.map(dot => dot.x),
-            y: dataSet.map(dot => dot.f(m, b)),
-            name: "model"
-        };
-
-        const data = [trainingTrace, testTrace, model];
-
-        const graphOptions = { filename: "linear-regression", fileopt: "overwrite" };
-        plotly.plot(data, graphOptions, msg => console.log(msg));
+    saveFile(filename="model/lr.json") {
+        const modelObj = {
+            type: "linear",
+            W: this.m,
+            b: this.b,
+        }
+        const jsonStr = JSON.stringify(modelObj);
+        fs.writeFileSync(filename, jsonStr);
     }
 
-}
-
-async function main() {
-    try {
-        const alpha = 1*(10**-4);
-        const n = 1*(10**5);
-        const LR = new LinearRegression(alpha, n, 0.25, 5);
-        await LR.readData("./data/linear-regression2.csv");
-        const start = performance.now();
-        LR.separateTrainingAndTesting();
-        LR.separateBatches();
-        LR.training();
-        const end = performance.now()
-        console.log(end - start);
-        console.log("m =", LR.m);
-        console.log("b =", LR.b);
-        console.log("L =", LR.error());
-        // LR.plotGraph();
-    } catch(e) {
-        console.error(e);
-        exit(1);
+    loadFile(filename="model/lr.json") {
+        const data = JSON.parse(fs.readFileSync(filename));
+        this.m =  data.W;
+        this.b =  data.b;
     }
 }
 
-main();
+class Dot {
+    constructor(data) {
+        this.x = Number(data[0]);
+        this.y = Number(data[1]);
+    }
+
+    f(m, b) {
+        return (this.x * m) + b;
+    }
+}
+
+module.exports  =  { LinearRegression }

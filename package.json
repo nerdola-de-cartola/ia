@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "train": "node src/trainModel.js",
+    "data": "node src/generateLinearRegressionDataSet.js",
+    "plot": "python3 src/plot_model.py model/lr.json && python3 src/plot_dataset.py data/data.csv"
+  },
   "dependencies": {
     "csv": "^6.3.8",
     "plotly": "^1.0.6"

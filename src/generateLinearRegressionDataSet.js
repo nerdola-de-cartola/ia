@@ -23,7 +23,7 @@ function linearEquation(x, W, b) {
     return y;
 }
 
-function generateLinearRegressionDataSet(W, b, n) {
+function generateLinearRegressionDataSet(W, b, n, noise) {
     const MAX_INTERVAL = 10**1;
     const BIAS = 0.5;
     const X = [];
@@ -31,7 +31,7 @@ function generateLinearRegressionDataSet(W, b, n) {
 
     for(let i = 0; i < n; i++) {
         const x = generateRandomArray(W.length, BIAS, MAX_INTERVAL);
-        const y = linearEquation(x, W, b);
+        const y = linearEquation(x, W, b) + (Math.random() - 0.5) * noise;
         X.push(x);
         Y.push(y);
     }
@@ -42,11 +42,11 @@ function generateLinearRegressionDataSet(W, b, n) {
 function main() {
     const W = [1, 1];
     const b = 0;
-    const [X, Y] = generateLinearRegressionDataSet(W, b, 10000);
+    const noise = 0.5;
 
+    const [X, Y] = generateLinearRegressionDataSet(W, b, 300, noise);
     
     const data = X.map((x, i) => [...x, Y[i]])
-
 
     writeToCSV(data, ["x0", "x1", "y"]);
 
